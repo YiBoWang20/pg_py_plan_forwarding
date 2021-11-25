@@ -114,8 +114,6 @@ pg_py_planner(
 		cursorOptions,
 		boundParams);
 
-
-
 	py_planner = PyObject_GetAttrString(pg_py_module, "planner");
 	if (!py_planner || !PyCallable_Check(py_planner)) {
 		return planned_stmt;
