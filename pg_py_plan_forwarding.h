@@ -29,22 +29,38 @@
 #include "utils/fmgroids.h"
 #include "utils/snapmgr.h"
 
+#include "plpy_util.h"
+#include "plpython.h"
 
-static PlannedStmt* pg_py_planner(
+
+PlannedStmt*
+call_default_planner(
+	Query *parse,
+	const char *query_string,
+	int cursorOptions,
+	ParamListInfo boundParams);
+
+
+///home/sk/tmp/postgres/src/pl/plpython/plpy_util.c
+static PlannedStmt* 
+pg_py_planner(
 	Query *parse,
 	const char *query_string,
 	int cursorOptions, 
 	ParamListInfo boundParams);
 
 /*
-static void pg_py_ExecutorStart(
+static void 
+pg_py_ExecutorStart(
 	QueryDesc *queryDesc, 
 	int eflags);
 
-static void pg_py_ExecutorEnd(
+static void 
+pg_py_ExecutorEnd(
 	QueryDesc *queryDesc);
 
-static void pg_py_ExplainOneQuery(
+static void 
+pg_py_ExplainOneQuery(
 	Query* query, 
 	int cursorOptions, 
 	IntoClause* into, 

@@ -1,4 +1,5 @@
-# pg_extension extension
-comment = 'Template for new extensions'
-module_pathname = '$libdir/pg_extension'
+# PG Py plan forwarding extension
+comment = 'extension forward PostgreSQL plan to Python for modification and return it back '
+default_version = '0.1'
+module_pathname = '$libdir/pg_py_plan_forwarding'
 relocatable = true
