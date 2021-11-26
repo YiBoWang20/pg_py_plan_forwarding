@@ -1,10 +1,5 @@
 #include "postgres.h"
-//#include <Python.h>
 #include "pg_py_plan_forwarding.h"
-
-//#include "executor/executor.h"
-//#include "optimizer/paths.h"
-
 
 
 PG_MODULE_MAGIC;
@@ -102,42 +97,6 @@ void _PG_fini(void) {
 }
 
 
-char *
-pg_py_UnicodeToString(PyObject *unicode)
-{
-
-	PyObject   *bytes,
-			   *rv;
-	char	   *utf8string,
-			   *encoded;
-
-	/* First encode the Python unicode object with UTF-8. */
-	bytes = PyUnicode_AsUTF8String(unicode);
-	if (bytes == NULL)
-		elog(ERROR, "could not convert Python Unicode object to bytes");
-
-	utf8string = PyBytes_AsString(bytes);
-	if (utf8string == NULL)
-	{
-		Py_DECREF(bytes);
-		elog(ERROR, "could not extract bytes from encoded string");
-	}
-
-	rv = PyBytes_FromStringAndSize(encoded, strlen(encoded));
-
-	/* if pg_any_to_server allocated memory, free it now */
-	if (utf8string != encoded)
-		pfree(encoded);
-
-	Py_DECREF(bytes);
-
-	char	   *cstr = pstrdup(PyBytes_AsString(rv));
-
-	Py_XDECREF(rv);
-	return cstr;
-}
-
-
 PlannedStmt*
 call_default_planner(
 	Query *parse,
@@ -181,9 +140,6 @@ pg_py_planner(
 		query_string,
 		cursorOptions,
 		boundParams);
-
-
-	//return planned_stmt;
 
 	py_planner = PyObject_GetAttrString(pg_py_module, "planner");
 	if (!py_planner || !PyCallable_Check(py_planner)) {
@@ -230,13 +186,16 @@ pg_py_planner(
 
 	Py_DECREF(py_arguments);
 
-	pfree(planned_stmt_str);
-	pfree(planned_stmt);
+	//pfree(planned_stmt_str);
+	//pfree(planned_stmt);
 
 	// undefined symbol: PLyUnicode_AsString
-	planned_stmt_str = pg_py_UnicodeToString(py_value);
+	planned_stmt_str = PyUnicode_AsUTF8(py_value);
 	planned_stmt = stringToNode(planned_stmt_str);
-
+/*
+	elog(DEBUG1, "python result:%s", 
+		planned_stmt_str);
+*/
 	return planned_stmt;
 
 }
