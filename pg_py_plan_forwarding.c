@@ -58,7 +58,7 @@ _PG_init(void)
 {
 
 	PyObject *py_name;
-
+    PyObject *py_function;
 	PyStatus status;
     PyConfig config;
 
@@ -99,20 +99,20 @@ _PG_init(void)
 		return;
 	}
 
-    py_planner = PyObject_GetAttrString(pg_py_module, PLANNER);
-    if (py_planner && PyCallable_Check(py_planner)) {
+    py_function = PyObject_GetAttrString(pg_py_module, PLANNER);
+    if (py_function && PyCallable_Check(py_function)) {
         prev_planner_hook = planner_hook;
         planner_hook = pg_py_planner;
     }
 
-    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_START);
-    if (py_planner && PyCallable_Check(py_planner)) {
+    py_function = PyObject_GetAttrString(pg_py_module, EXECUTOR_START);
+    if (py_function && PyCallable_Check(py_function)) {
         prev_executor_start = ExecutorStart_hook;
         ExecutorStart_hook = pg_py_executor_start;
     }
 
-    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_END);
-    if (py_planner && PyCallable_Check(py_planner)) {
+    py_function = PyObject_GetAttrString(pg_py_module, EXECUTOR_END);
+    if (py_function && PyCallable_Check(py_function)) {
         prev_executor_end = ExecutorEnd_hook;
         ExecutorEnd_hook = pg_py_executor_end;
     }
