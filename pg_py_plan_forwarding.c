@@ -4,13 +4,51 @@
 
 PG_MODULE_MAGIC;
 
+
+#define PLANNER "planner"
+#define EXECUTOR_START "executor_start"
+#define EXECUTOR_END "executor_end"
+
 void _PG_init(void);
 void _PG_fini(void);
 
+PlannedStmt*
+default_planner(
+        Query *parse,
+        const char *query_string,
+        int cursorOptions,
+        ParamListInfo boundParams);
+
+static void
+default_executor_start(
+    QueryDesc *query_desc,
+    int eflags);
+
+static void
+default_executor_end(
+        QueryDesc *query_desc);
+
+static PlannedStmt*
+pg_py_planner(
+    Query *parse,
+    const char *query_string,
+    int cursorOptions,
+    ParamListInfo boundParams);
+
+static void
+pg_py_executor_start(
+    QueryDesc *query_desc,
+    int eflags);
+
+static void
+pg_py_executor_end(
+    QueryDesc *query_desc);
+
 
 static planner_hook_type prev_planner_hook = NULL;
-//static ExecutorStart_hook_type prev_ExecutorStart = NULL;
-//static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
+static ExecutorStart_hook_type prev_executor_start = NULL;
+static ExecutorEnd_hook_type prev_executor_end = NULL;
+
 //static ExplainOneQuery_hook_type prev_ExplainOneQuery = NULL;
 
 static PyObject *pg_py_module = NULL;
@@ -61,35 +99,28 @@ _PG_init(void)
 		return;
 	}
 
-	prev_planner_hook = planner_hook;
-	planner_hook = pg_py_planner;
+    py_planner = PyObject_GetAttrString(pg_py_module, PLANNER);
+    if (py_planner && PyCallable_Check(py_planner)) {
+        prev_planner_hook = planner_hook;
+        planner_hook = pg_py_planner;
+    }
 
+    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_START);
+    if (py_planner && PyCallable_Check(py_planner)) {
+        prev_executor_start = ExecutorStart_hook;
+        ExecutorStart_hook = pg_py_executor_start;
+    }
 
-//	prev_ExecutorStart = ExecutorStart_hook;
-//	ExecutorStart_hook = pg_py_ExecutorStart;
-
-//	prev_ExecutorEnd = ExecutorEnd_hook;
-//	ExecutorEnd_hook = pg_py_ExecutorEnd;
+    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_END);
+    if (py_planner && PyCallable_Check(py_planner)) {
+        prev_executor_end = ExecutorEnd_hook;
+        ExecutorEnd_hook = pg_py_executor_end;
+    }
 
 //	prev_ExplainOneQuery = ExplainOneQuery_hook;
 //	ExplainOneQuery_hook = pg_py_ExplainOneQuery;
 
-/*
-	py_executor_start_hook = PyObject_GetAttrString(py_module, "executor_start_hook");
-	if (!py_executor_start_hook || !PyCallable_Check(py_executor_start_hook)) {
-		py_executor_start_hook = NULL;
-	}
 
-	py_executor_end_hook = PyObject_GetAttrString(py_module, "executor_end_hook");
-	if (!py_executor_end_hook || !PyCallable_Check(py_executor_end_hook)) {
-		py_executor_end_hook = NULL;
-	}
-
-	py_explain_one_query_hook = PyObject_GetAttrString(py_module, "explain_one_query_hook");
-	if (!py_explain_one_query_hook || !PyCallable_Check(py_explain_one_query_hook)) {
-		py_explain_one_query_hook = NULL;
-	}
-*/
 }
 
 void _PG_fini(void) {
@@ -98,7 +129,7 @@ void _PG_fini(void) {
 
 
 PlannedStmt*
-call_default_planner(
+default_planner(
 	Query *parse,
 	const char *query_string,
 	int cursorOptions,
@@ -119,6 +150,39 @@ call_default_planner(
 }
 
 
+static void
+default_executor_start(
+    QueryDesc *query_desc,
+    int eflags)
+{
+    if (prev_executor_start)
+        return prev_executor_start(
+            query_desc,
+            eflags);
+/*
+    else
+        return standard_planner(
+            query_desc,
+            eflags);
+*/
+}
+
+static void
+default_executor_end(
+    QueryDesc *query_desc)
+{
+    if (prev_executor_end)
+        return prev_executor_end(
+            query_desc);
+/*
+    else
+        return standard_planner(
+            query_desc);
+*/
+}
+
+
+
 static PlannedStmt* 
 pg_py_planner(
 	Query *parse,
@@ -135,17 +199,13 @@ pg_py_planner(
 	char *parse_str;
 	char *planned_stmt_str;
 
-	planned_stmt = call_default_planner(
+	planned_stmt = default_planner(
 		parse,
 		query_string,
 		cursorOptions,
 		boundParams);
 
-	py_planner = PyObject_GetAttrString(pg_py_module, "planner");
-	if (!py_planner || !PyCallable_Check(py_planner)) {
-		elog(DEBUG1, "method planner not available");
-		return planned_stmt;
-	}
+	py_planner = PyObject_GetAttrString(pg_py_module, PLANNER);
 
 	//TODO: It looks creepy at the moment
 	py_arguments = PyTuple_New(2);
@@ -161,7 +221,6 @@ pg_py_planner(
 	}
 
 	PyTuple_SetItem(py_arguments, 0, py_value);
-
 
 	planned_stmt_str = nodeToString(planned_stmt);
 	py_value = PyUnicode_FromString(planned_stmt_str);
@@ -186,16 +245,86 @@ pg_py_planner(
 
 	Py_DECREF(py_arguments);
 
-	//pfree(planned_stmt_str);
-	//pfree(planned_stmt);
-
 	// undefined symbol: PLyUnicode_AsString
 	planned_stmt_str = PyUnicode_AsUTF8(py_value);
 	planned_stmt = stringToNode(planned_stmt_str);
-/*
-	elog(DEBUG1, "python result:%s", 
-		planned_stmt_str);
-*/
-	return planned_stmt;
 
+	return planned_stmt;
+}
+
+static void
+pg_py_executor_start(
+        QueryDesc *query_desc,
+        int eflags)
+{
+    PyObject *py_planner;
+    PyObject *py_arguments;
+    PyObject *py_value;
+
+    char *query_desc_str;
+
+    default_executor_start(
+            query_desc,
+            eflags);
+
+    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_START);
+
+    //TODO: It looks creepy at the moment
+    py_arguments = PyTuple_New(1);
+
+    query_desc_str = nodeToString(query_desc);
+    py_value = PyUnicode_FromString(query_desc_str);
+    if (!py_value) {
+        pfree(query_desc_str);
+        Py_DECREF(py_arguments);
+        Py_DECREF(py_value);
+        elog(WARNING, "cannot convert argument query");
+        return;
+    }
+
+    PyTuple_SetItem(py_arguments, 0, py_value);
+    PyObject_CallObject(py_planner, py_arguments);
+
+    Py_DECREF(py_arguments);
+    Py_DECREF(py_value);
+
+    return;
+}
+
+static void
+pg_py_executor_end(
+    QueryDesc *query_desc)
+{
+
+    PyObject *py_planner;
+    PyObject *py_arguments;
+    PyObject *py_value;
+
+    char *query_desc_str;
+
+    default_executor_end(
+            query_desc);
+
+    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_END);
+
+    //TODO: It looks creepy at the moment
+    py_arguments = PyTuple_New(1);
+
+    query_desc_str = nodeToString(query_desc);
+    py_value = PyUnicode_FromString(query_desc_str);
+    if (!py_value) {
+        pfree(query_desc_str);
+        Py_DECREF(py_arguments);
+        Py_DECREF(py_value);
+        elog(WARNING, "cannot convert argument query");
+        return;
+    }
+
+    PyTuple_SetItem(py_arguments, 0, py_value);
+    PyObject_CallObject(py_planner, py_arguments);
+
+    Py_DECREF(py_arguments);
+    Py_DECREF(py_value);
+
+    return;
 }

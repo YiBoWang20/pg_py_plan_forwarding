@@ -12,4 +12,6 @@ cd build
 make -f ../pg_py_plan_forwarding/Makefile # compile
 make install # install
 make check # check whether it works correctly (optional)
+
+export PYTHONPATH=/home/vagrant/pg_py_plan_forwarding
 ```

@@ -34,7 +34,7 @@
 
 
 PlannedStmt*
-call_default_planner(
+default_planner(
 	Query *parse,
 	const char *query_string,
 	int cursorOptions,
