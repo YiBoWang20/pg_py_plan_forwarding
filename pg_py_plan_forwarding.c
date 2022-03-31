@@ -259,15 +259,13 @@ pg_py_executor_start(
         QueryDesc *query_desc,
         int eflags)
 {
-
-
-    elog(LOG, "pg_py_executor_start");
-
     PyObject *py_planner;
     PyObject *py_arguments;
     PyObject *py_value;
 
     char *query_desc_str;
+
+    elog(LOG, "pg_py_executor_start");
 
     default_executor_start(
             query_desc,
@@ -303,12 +301,13 @@ static void
 pg_py_executor_end(
     QueryDesc *query_desc)
 {
-    elog(LOG, "pg_py_executor_end");
     PyObject *py_planner;
     PyObject *py_arguments;
     PyObject *py_value;
 
     char *query_desc_str;
+
+    elog(LOG, "pg_py_executor_end");
 
     default_executor_end(
             query_desc);
