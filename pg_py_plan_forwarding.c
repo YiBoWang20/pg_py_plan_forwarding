@@ -155,7 +155,6 @@ default_executor_start(
     QueryDesc *query_desc,
     int eflags)
 {
-    elog(LOG, "default_executor_start");
     if (prev_executor_start)
         return prev_executor_start(
             query_desc,
@@ -172,7 +171,6 @@ static void
 default_executor_end(
     QueryDesc *query_desc)
 {
-    elog(LOG, "default_executor_end");
     if (prev_executor_end)
         return prev_executor_end(
             query_desc);
@@ -259,19 +257,17 @@ pg_py_executor_start(
         QueryDesc *query_desc,
         int eflags)
 {
-    PyObject *py_planner;
+    PyObject *py_executor_start;
     PyObject *py_arguments;
     PyObject *py_value;
 
     char *query_desc_str;
 
-    elog(LOG, "pg_py_executor_start");
-
     default_executor_start(
             query_desc,
             eflags);
 
-    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_START);
+    py_executor_start = PyObject_GetAttrString(pg_py_module, EXECUTOR_START);
 
     //TODO: It looks creepy at the moment
     py_arguments = PyTuple_New(1);
@@ -287,11 +283,18 @@ pg_py_executor_start(
         return;
     }
 
-    elog(LOG, "call");
     PyTuple_SetItem(py_arguments, 0, py_value);
-    PyObject_CallObject(py_planner, py_arguments);
 
+    elog(LOG, "call");
+    PyObject_CallObject(py_executor_start, py_arguments);
+
+    elog(LOG, "free1");
+    Py_DECREF(py_executor_start);
+
+    elog(LOG, "free2");
     Py_DECREF(py_arguments);
+
+    elog(LOG, "free3");
     Py_DECREF(py_value);
 
     return;
@@ -301,23 +304,20 @@ static void
 pg_py_executor_end(
     QueryDesc *query_desc)
 {
-    PyObject *py_planner;
+    PyObject *py_executor_end;
     PyObject *py_arguments;
     PyObject *py_value;
 
     char *query_desc_str;
 
-    elog(LOG, "pg_py_executor_end");
-
     default_executor_end(
             query_desc);
 
-    py_planner = PyObject_GetAttrString(pg_py_module, EXECUTOR_END);
+    py_executor_end = PyObject_GetAttrString(pg_py_module, EXECUTOR_END);
 
     //TODO: It looks creepy at the moment
     py_arguments = PyTuple_New(1);
 
-    elog(LOG, "nodeToString");
     query_desc_str = nodeToString(query_desc);
     py_value = PyUnicode_FromString(query_desc_str);
     if (!py_value) {
@@ -328,9 +328,10 @@ pg_py_executor_end(
         return;
     }
 
-    elog(LOG, "call");
     PyTuple_SetItem(py_arguments, 0, py_value);
-    PyObject_CallObject(py_planner, py_arguments);
+
+    elog(LOG, "call");
+    PyObject_CallObject(py_executor_end, py_arguments);
 
     Py_DECREF(py_arguments);
     Py_DECREF(py_value);
